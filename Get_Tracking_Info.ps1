@@ -1,22 +1,9 @@
-$bearer_tok = Get-Content ./auth/bearer.txt
+#API CALL FUNCTION THAT RETURNS A PS CUSTOM OBJECT WITH ALL TRACKING INFO
+function Get-Shipping-Info($tracking_num){
 
-$headers = @{
-    "transId"= "string"
-    "transactionSrc"= "1000"
-    "Authorization"= "Bearer " + $bearer_tok
-}
+    $url = "https://onlinetools.ups.com/api/track/v1/details/$tracking_num"
 
-$query = @{
-    locale = "en_US"
-    returnSignature= "false"
-    returnMilestones= "false"
-  }
-
-Function Call-Api($tracking_num){
-
-    $url = "https://onlinetools.ups.com/api/track/v1/details/"+$tracking_num
-
-    $data = @{
+    $tracking_info = @{
         label_created=""
         curr_status="N/A"
         shipped_date="N/A"
@@ -28,77 +15,143 @@ Function Call-Api($tracking_num){
         ship_service=""
     }
 
-    $result = Invoke-RestMethod -Uri $url -Method Get -Headers $headers -Body $query
+    $bearer_tok = Get-Content ./auth/bearer.txt
 
-    #Label Created
-    $data.label_created = $result.trackResponse.shipment.package.activity
-    $data.label_created = $result.trackResponse.shipment.package.activity[$label_created.Length-1].date
-    $data.label_created = [datetime]::parseexact($data.label_created, 'yyyyMMdd', $null).ToString('MM/dd/yyyy')
-
-    #Current Status
-    $data.curr_status = $result.trackResponse.shipment.package.currentStatus.description
-
-    if($data.curr_status -ne "Shipment Ready for UPS"){
-
-        #Shipped Date
-        $data.shipped_date = $result.trackResponse.shipment.package.activity
-        $data.shipped_date = $result.trackResponse.shipment.package.activity[$shipped_date.Length-2].date
-        $data.shipped_date = [datetime]::parseexact($data.shipped_date, 'yyyyMMdd', $null).ToString('MM/dd/yyyy')
-
-        #Last Scan Date/Time
-        $last_scan = $result.trackResponse.shipment.package.activity[0].date
-        $last_scan = [datetime]::parseexact($last_scan, 'yyyyMMdd', $null).ToString('MM/dd/yyyy')
-        $last_time = $result.trackResponse.shipment.package.activity[0].time
-        $last_time = [datetime]::parseexact($last_time, 'HHmmss', $null).ToString('hh:mm tt')
-        $data.last_scan = "$last_scan $last_time"
-
-        #Last Scan Location
-        $data.last_scan_local = $result.trackResponse.shipment.package.activity[0].location.address.city
-        $data.last_scan_local = $data.last_scan_local+ ", "  + $result.trackResponse.shipment.package.activity[0].location.address.stateProvince
+    $headers = @{
+        "transId"= "string"
+        "transactionSrc"= "1000"
+        "Authorization"= "Bearer " + $bearer_tok
     }
 
-    if($data.curr_status -eq "Delivered"){
+    $query = @{
+        locale = "en_US"
+        returnSignature= "false"
+        returnMilestones= "false"
+    }
+
+    $api_response = Invoke-RestMethod -Uri $url -Method Get -Headers $headers -Body $query
+
+    #Label Created
+    $tracking_info.label_created = $api_response.trackResponse.shipment.package.activity
+    $tracking_info.label_created = $api_response.trackResponse.shipment.package.activity[$label_created.Length-1].date
+    $tracking_info.label_created = [datetime]::parseexact($tracking_info.label_created, 'yyyyMMdd', $null).ToString('MM/dd/yyyy')
+
+    #Current Status
+    $tracking_info.curr_status = $api_response.trackResponse.shipment.package.currentStatus.description
+
+    if($tracking_info.curr_status -ne "Shipment Ready for UPS" -and $tracking_info.curr_status -ne "Shipment Canceled" ){
+
+        #Shipped Date
+        $tracking_info.shipped_date = $api_response.trackResponse.shipment.package.activity
+        $tracking_info.shipped_date = $api_response.trackResponse.shipment.package.activity[$shipped_date.Length-2].date
+        $tracking_info.shipped_date = [datetime]::parseexact($tracking_info.shipped_date, 'yyyyMMdd', $null).ToString('MM/dd/yyyy')
+
+        #Last Scan Date/Time
+        $last_scan = $api_response.trackResponse.shipment.package.activity[0].date
+        $last_scan = [datetime]::parseexact($last_scan, 'yyyyMMdd', $null).ToString('MM/dd/yyyy')
+        $last_time = $api_response.trackResponse.shipment.package.activity[0].time
+        $last_time = [datetime]::parseexact($last_time, 'HHmmss', $null).ToString('hh:mm tt')
+        $tracking_info.last_scan = "$last_scan $last_time"
+
+        #Last Scan Location
+        $tracking_info.last_scan_local = $api_response.trackResponse.shipment.package.activity[0].location.address.city
+        $tracking_info.last_scan_local = $tracking_info.last_scan_local+ ", "  + $api_response.trackResponse.shipment.package.activity[0].location.address.stateProvince
+    }
+
+    if($tracking_info.curr_status -eq "Delivered"){
         #Delivery Date
-        $data.deliv_date = $result.trackResponse.shipment.package.deliveryDate.date
-        $data.deliv_date = [datetime]::parseexact($data.deliv_date, 'yyyyMMdd', $null).ToString('MM/dd/yyyy')
+        $tracking_info.deliv_date = $api_response.trackResponse.shipment.package.deliveryDate.date
+        $tracking_info.deliv_date = [datetime]::parseexact($tracking_info.deliv_date, 'yyyyMMdd', $null).ToString('MM/dd/yyyy')
     }
 
     #Ship to
-    $to_address1 = $result.trackResponse.shipment.package.packageAddress[1].address.addressLine1
+    $to_address1 = $api_response.trackResponse.shipment.package.packageAddress[1].address.addressLine1
     $to_address1 = $to_address1.Substring(0,$to_address1.Length-1)
-    $to_address2 = $result.trackResponse.shipment.package.packageAddress[1].address.addressLine2
-    $city = $result.trackResponse.shipment.package.packageAddress[1].address.city
-    $state = $result.trackResponse.shipment.package.packageAddress[1].address.stateProvince
-    $zip = $result.trackResponse.shipment.package.packageAddress[1].address.postalCode
-    $data.ship_to = ""
+    $to_address2 = $api_response.trackResponse.shipment.package.packageAddress[1].address.addressLine2
+    $city = $api_response.trackResponse.shipment.package.packageAddress[1].address.city
+    $state = $api_response.trackResponse.shipment.package.packageAddress[1].address.stateProvince
+    $zip = $api_response.trackResponse.shipment.package.packageAddress[1].address.postalCode
+    $tracking_info.ship_to = ""
 
     if($to_address2.Length -eq 0){
-        $data.ship_to = "$to_address1 $city, $state $zip"
+        $tracking_info.ship_to = "$to_address1 $city, $state $zip"
     }else{
-        $data.ship_to = "$to_address1 $to_address2 $city, $state $zip"
+        $tracking_info.ship_to = "$to_address1 $to_address2 $city, $state $zip"
     }
 
     #Reference
-    $data.reference = $result.trackResponse.shipment.package.referenceNumber[0].number
+    $tracking_info.reference = $api_response.trackResponse.shipment.package.referenceNumber.number[2]
 
     #Ship Service
-    $data.ship_service = $result.trackResponse.shipment.package.service.description
+    $tracking_info.ship_service = $api_response.trackResponse.shipment.package.service.description
 
-    Return $data
+    Return $tracking_info
 }
+#FUNCTION TO VOID SHIPMENT. TAKES TRACKING NUMBER AS PARAMETER
+function Void-Shipment($tracking_num){
+
+    $url = "https://onlinetools.ups.com/api/shipments/v2403/void/cancel/"+$tracking_num+"?trackingnumber="+$tracking_num
+
+    $bearer_tok = Get-Content ./auth/bearer.txt
+
+    $headers = @{
+    "Authorization"= "Bearer $bearer_tok"
+    "transId"= "string"
+    "transactionSrc"= "1000"
+    }
+
+    #MAKE REQUEST TO VOID SHIPMENT
+    Invoke-RestMethod -Uri $url -Method Delete -Headers $headers
+}
+
+
+
 
 
 #CONNECT TO SHAREPOINT
 Connect-PnPOnline -url "https://70rspw.sharepoint.com/sites/Testing" -interactive
 
+./Bearer_Token.ps1
+
 #GET SHAREPOINT LIST
-$info = get-pnplistitem -list tracking
+$sp_list = get-pnplistitem -list tracking
 
-for($i=1; $i -le $info.Length; $i++){
-    $id = $info[$i-1].Id
-    $new_data = Call-Api($info[$i-1]["Title"])
+#NEW BEARER TOKEN FROM UPS
 
-    Set-PnPListItem -List "Tracking" -Identity $id -Values @{"LabelCreated" = $new_data.label_created; "Status"=$new_data.curr_status; "ShippedDate"=$new_data.shipped_date;
-    "LastScanDate_x002f_Time"=$new_data.last_scan; "LastScanLocation"=$new_data.last_scan_local;  "ShippingTo"=$new_data.ship_to; "DeliveryDate"=$new_data.deliv_date; 
-    "Reference"=$new_data.reference; "ShipService"=$new_data.ship_service}
+try {
+
+    #ITERATE THROUGH THE SHAREPOINT LIST ($sp_list)
+    for($i=1; $i -le $sp_list.Length; $i++){
+
+        #TRACKING NUMBER OF CURRENT SHIPMENT
+        $shipment_number = $sp_list[$i-1]["Title"]
+
+        #STATUS OF CURRENT SHIPMENT
+        $status=$sp_list[$i-1]["Status"]
+
+        #ID OF THE LIST ITEM (NEEDED TO UPDATE THE LIST ITEM)
+        $id = $sp_list[$i-1].Id
+
+        #IF VOID SHIPMENT IS SELECTED IN LIST ITEM AND THE SHIPMENT HASN'T ALREADY BEEN CANCELED PREVIOUSLY
+        if ($sp_list[$i-1]["Void"] -eq "Void Shipment" -and $status -ne "Shipment Canceled") {
+            Void-Shipment($shipment_number)
+            Set-PnPListItem -List "Tracking" -Identity $id -Values @{"Void"="Shipment Voided"}
+        }
+
+        #IF PACKAGE IS NOT DELIVERED
+        if($status -ne "Delivered" -and $status -ne "Shipment Canceled" -and $shipment_number -clike "1Z*"){
+            
+            #USE Get-Shipping-Info METHOD TO MAKE A REQUEST TO UPS API FOR PACKAGE DATA
+            $package_info = Get-Shipping-Info($shipment_number)
+
+            #UPDATE THE ITEM WITH THE VALUES FROM UPS API
+            Set-PnPListItem -List "Tracking" -Identity $id -Values @{"LabelCreated" = $package_info.label_created; "Status"=$package_info.curr_status; "ShippedDate"=$package_info.shipped_date;
+        "LastScanDate_x002f_Time"=$package_info.last_scan; "LastScanLocation"=$package_info.last_scan_local;  "ShippingTo"=$package_info.ship_to; "DeliveryDate"=$package_info.deliv_date; 
+        "Reference"=$package_info.reference; "ShipService"=$package_info.ship_service}
+        }
+
+        }
+}
+catch {
+    Write-host -f red "Encountered Error:"$_.Exception.Message
 }
