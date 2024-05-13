@@ -104,54 +104,83 @@ function Void-Shipment($tracking_num){
     Invoke-RestMethod -Uri $url -Method Delete -Headers $headers
 }
 
-
-
-
-
-#CONNECT TO SHAREPOINT
-Connect-PnPOnline -url "https://70rspw.sharepoint.com/sites/Testing" -interactive
-
 ./Bearer_Token.ps1
 
-#GET SHAREPOINT LIST
-$sp_list = get-pnplistitem -list tracking
-
-#NEW BEARER TOKEN FROM UPS
+<#
+    -Connecting to Sharepoint, getting all items in list that have "Void Shipment" selected
+    -Iterate through list if it's not empty. Call "Void-Shipment" function on all shipments, which will void the shipments
+    -Updates list item to "Shipment Voided" so it doesn't try to void them again
+#>
+Connect-PnPOnline -url "https://70rspw.sharepoint.com/sites/Testing" -interactive
 
 try {
+    $void_shipment = @"
+    <View>
+        <Query>
+            <Where>
+                <Eq><FieldRef Name='Void'/><Value Type='Text'>Void Shipment</Value></Eq>
+            </Where>
+        </Query>
+    </View>
+"@
+    $sp_list =Get-PnPListItem -list tracking -Query $void_shipment
 
-    #ITERATE THROUGH THE SHAREPOINT LIST ($sp_list)
-    for($i=1; $i -le $sp_list.Length; $i++){
+    if($sp_list){
 
-        #TRACKING NUMBER OF CURRENT SHIPMENT
-        $shipment_number = $sp_list[$i-1]["Title"]
+        foreach($item in $sp_list){
 
-        #STATUS OF CURRENT SHIPMENT
-        $status=$sp_list[$i-1]["Status"]
-
-        #ID OF THE LIST ITEM (NEEDED TO UPDATE THE LIST ITEM)
-        $id = $sp_list[$i-1].Id
-
-        #IF VOID SHIPMENT IS SELECTED IN LIST ITEM AND THE SHIPMENT HASN'T ALREADY BEEN CANCELED PREVIOUSLY
-        if ($sp_list[$i-1]["Void"] -eq "Void Shipment" -and $status -ne "Shipment Canceled") {
-            Void-Shipment($shipment_number)
-            Set-PnPListItem -List "Tracking" -Identity $id -Values @{"Void"="Shipment Voided"}
+            #Void-Shipment($item["Title"])
+            Write-Host $item["Title"] "- Voided!"
+            $i = Set-PnPListItem -List "Tracking" -Identity $item.Id -Values @{"Void"="Shipment Voided"}
+        }
+    }else{
+            Write-Output "No shipments to void"
         }
 
-        #IF PACKAGE IS NOT DELIVERED
-        if($status -ne "Delivered" -and $status -ne "Shipment Canceled" -and $shipment_number -clike "1Z*"){
-            
-            #USE Get-Shipping-Info METHOD TO MAKE A REQUEST TO UPS API FOR PACKAGE DATA
-            $package_info = Get-Shipping-Info($shipment_number)
-
-            #UPDATE THE ITEM WITH THE VALUES FROM UPS API
-            Set-PnPListItem -List "Tracking" -Identity $id -Values @{"LabelCreated" = $package_info.label_created; "Status"=$package_info.curr_status; "ShippedDate"=$package_info.shipped_date;
-        "LastScanDate_x002f_Time"=$package_info.last_scan; "LastScanLocation"=$package_info.last_scan_local;  "ShippingTo"=$package_info.ship_to; "DeliveryDate"=$package_info.deliv_date; 
-        "Reference"=$package_info.reference; "ShipService"=$package_info.ship_service}
-        }
-
-        }
 }
 catch {
+    Write-host -f red "Encountered Error:"$_.Exception.Message
+}
+
+
+
+<#
+    -Get all items in list where the "Status" is not "Deliverd" or "Shipment Cancelled"
+    -Iterate through list. Check format to ensure it's correct length and starts with "1Z"
+    -Call UPS Tracking endpoint for shipping info on each package. Update the list with updated tracking information
+#>
+try {
+    $active_package_query = @"
+    <View>
+        <Query>
+            <Where>
+                <And>
+                    <Neq><FieldRef Name='Status'/><Value Type='Text'>Delivered</Value></Neq>
+                    <Neq><FieldRef Name='Status'/><Value Type='Text'>Shipment Canceled</Value></Neq>
+                </And>
+            </Where>
+        </Query>
+    </View>
+"@
+    $sp_list = Get-PnPListItem -list tracking -Query $active_package_query
+
+    foreach($item in $sp_list){
+
+        if($item["Title"] -clike "1Z*" -and $item["Title"].Length -eq 18){
+
+            $package_info = Get-Shipping-Info($item["Title"])
+
+            $i = Set-PnPListItem -List "Tracking" -Identity $item.Id -Values @{"LabelCreated" = $package_info.label_created; "Status"=$package_info.curr_status; "ShippedDate"=$package_info.shipped_date;
+            "LastScanDate_x002f_Time"=$package_info.last_scan; "LastScanLocation"=$package_info.last_scan_local;  "ShippingTo"=$package_info.ship_to; "DeliveryDate"=$package_info.deliv_date; 
+            "Reference"=$package_info.reference; "ShipService"=$package_info.ship_service}
+
+            Write-Host $item["Title"] "has been updated"
+        
+        }else{
+            Write-Host "----Id:"$item.ID $item["Title"] "format incorrect. Not a UPS tracking number----"
+            $i = Set-PnPListItem -List "Tracking" -Identity $item.Id -Values @{"Status"= "Not Valid UPS Shipment"}
+        }
+  }
+}catch{
     Write-host -f red "Encountered Error:"$_.Exception.Message
 }
