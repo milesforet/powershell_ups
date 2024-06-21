@@ -1,6 +1,5 @@
 #API CALL FUNCTION THAT RETURNS A PS CUSTOM OBJECT WITH ALL TRACKING INFO
 function Get-Shipping-Info($tracking_num){
-    Write-Host "Get-Shipping-Info"$tracking_num
 
     $url = "https://onlinetools.ups.com/api/track/v1/details/$tracking_num"
 
@@ -21,7 +20,7 @@ function Get-Shipping-Info($tracking_num){
     $headers = @{
         "transId"= "string"
         "transactionSrc"= "1000"
-        "Authorization"= "Bearer " + $bearer_tok
+        "Authorization"= "Bearer $bearer_tok"
     }
 
     $query = @{
@@ -139,11 +138,11 @@ try {
         foreach($item in $sp_list){
             
             if($item["Title"] -clike "1Z*" -and $item["Title"].Length -eq 18){
-                #Void-Shipment($item["Title"])
-                Write-Host $item["Title"] "- Voided!"
+                Void-Shipment($item["Title"])
+                Write-Output ($item["Title"]+ '- Voided!')
                 $i = Set-PnPListItem -List "UPS Tracking" -Identity $item.Id -Values @{"Void"="Shipment Voided"}
             }else{
-                Write-Host "Not a Valid UPS Tracking Number"
+                Write-Output "Not a Valid UPS Tracking Number"
             }
         }
     }else{
@@ -152,7 +151,7 @@ try {
 
 }
 catch {
-    Write-host -f red "Encountered Error:"$_.Exception.Message
+    Write-Output "Encountered Error:"$_.Exception.Message
 }
 
 
@@ -191,24 +190,24 @@ try {
             "LastScan"=$package_info.last_scan; "LastScanLocation"=$package_info.last_scan_local;  "ShippingTo"=$package_info.ship_to; "DeliveryDate"=$package_info.deliv_date; 
             "Reference"=$package_info.reference; "ShipService"=$package_info.ship_service}
 
-            Write-Host $item["Title"] "has been updated`n"
+            Write-Output ($item["Title"] + "has been updated`n")
         
         }else{
-            Write-Host "----Id:"$item.ID $item["Title"] "format incorrect. Not a UPS tracking number----"
+            Write-Output ('----Id: '+$item.ID + ' ' + $item["Title"]+ ' ' + 'format incorrect. Not a UPS tracking number----')
             $i = Set-PnPListItem -List "UPS Tracking" -Identity $item.Id -Values @{"Status"= "Not Valid UPS Shipment"}
         } 
   }
     if($delivered){
         #TODO: Set up email notification for Delivered packages
-        Write-Host "-------------------------DELIVERED:-------------------------------"
+        Write-Output "-------------------------DELIVERED:-------------------------------"
         foreach($item in $delivered){
-            Write-Host $item[0]"-"$item[1]
+            Write-Output ($item[0]+ ' - ' + $item[1])
         }
 
     }else{
-        Write-Host "No packages have been delivered"
+        Write-Output "No packages have been delivered"
     }
 
 }catch{
-    Write-host -f red "Encountered Error:"$_.Exception.Message
+    Write-Output "Encountered Error:"$_.Exception.Message
 }
