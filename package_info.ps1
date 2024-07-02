@@ -1,4 +1,5 @@
 $account_number = Get-Content .\auth\account_info.txt
+
 $from_roman = @{
     Name = "ABS Kids"
     AttentionName = "Roman Samul"
@@ -152,9 +153,135 @@ $laptop = @(
     }
 )
 
+function laptop($name, $dept){
+    $laptop = @(
+    @{
+        Packaging = @{
+            Code = "02"                        
+        }
+        Dimensions = @{
+            UnitOfMeasurement = @{
+                Code = "IN"
+            }
+            Length = "24"
+            Width = "16"
+            Height = "6"
+        }
+        PackageWeight = @{
+            UnitOfMeasurement =  @{
+                Code = "LBS"
+            }
+            Weight = "14"
+        }
+        ReferenceNumber = @(
+            @{
+                Value = "{0} Monitors"
+            },
+            @{
+                Value = "Bill to {0}"
+            }
+        )
+    },
+    @{
+        Packaging = @{
+            Code = "02"                        
+        }
+        Dimensions = @{
+            UnitOfMeasurement = @{
+                Code = "IN"
+            }
+            Length = "24"
+            Width = "16"
+            Height = "6"
+        }
+        PackageWeight = @{
+            UnitOfMeasurement =  @{
+                Code = "LBS"
+            }
+            Weight = "14"
+        }
+        ReferenceNumber = @(
+            @{
+                Value = "{0} Monitors"
+            },
+            @{
+                Value = "Bill to {0}"
+            }
+        )
+    },
+    @{
+        Packaging = @{
+            Code = "02"                        
+        }
+        Dimensions = @{
+            UnitOfMeasurement = @{
+                Code = "IN"
+            }
+            Length = "20"
+            Width = "10"
+            Height = "6"
+        }
+        PackageWeight = @{
+            UnitOfMeasurement =  @{
+                Code = "LBS"
+            }
+            Weight = "8"
+        }
+        ReferenceNumber = @(
+            @{
+                Value = "{0} Peripherals"
+            },
+            @{
+                Value = "Bill to {0}"
+            }
+        )
+    },
+    @{
+        Packaging = @{
+            Code = "02"                        
+        }
+        Dimensions = @{
+            UnitOfMeasurement = @{
+                Code = "IN"
+            }
+            Length = "17"
+            Width = "13"
+            Height = "3"
+        }
+        PackageWeight = @{
+            UnitOfMeasurement =  @{
+                Code = "LBS"
+            }
+            Weight = "6"
+        }
+        ReferenceNumber = @(
+            @{
+                Value = "{0} Laptop"
+            },
+            @{
+                Value = "Bill to {0}"
+            }
+        )
+        PackageServiceOptions = @{
+            DeclaredValue = @{
+                CurrencyCode ="USD"
+                MonetaryValue = "999"
+            }
+        }
+    }
+    )
+
+    foreach ($item in $laptop) {
+        $item.ReferenceNumber[0].Value = [string]::Format($item.ReferenceNumber[0].Value, $name)
+        $item.ReferenceNumber[1].Value = [string]::Format($item.ReferenceNumber[1].Value, $dept)
+        return $laptop
+    }
+    
+}
 
 
-$desktop = @(
+function desktop($name, $dept){
+    $desktop =@(
     @{
         Packaging = @{
             Code = "02"                        
@@ -270,28 +397,22 @@ $desktop = @(
         }
     }
 )
+    foreach ($item in $desktop) {
+        $item.ReferenceNumber[0].Value = [string]::Format($item.ReferenceNumber[0].Value, $name)
+        $item.ReferenceNumber[1].Value = [string]::Format($item.ReferenceNumber[1].Value, $dept)
+        return $desktop
+    }
+
+}
 
 function create_packages($pc, $name, $dept) {
     
     if ($pc -eq "Laptop") {
-        $packages = $laptop
-        foreach ($item in $packages) {
-            $item.ReferenceNumber[0].Value = [string]::Format($item.ReferenceNumber[0].Value, $name)
-            $item.ReferenceNumber[1].Value = [string]::Format($item.ReferenceNumber[1].Value, $dept)
-        }
-        
-        Return $packages
+        return laptop -name $name -dept $dept
 
     }
     elseif ($pc -eq "Desktop") {
-        $packages = $desktop
-        foreach ($item in $packages) {
-            $item.ReferenceNumber[0].Value = [string]::Format($item.ReferenceNumber[0].Value, $name)
-            $item.ReferenceNumber[1].Value = [string]::Format($item.ReferenceNumber[1].Value, $dept)
-        }
-
-        Return $packages
-
+        return desktop -name $name -dept $dept
     }
     else {
         Write-Error "ERROR IN CREATE PACKAGES. DID NOT SELECT LAPTOP OR DESKTOP"

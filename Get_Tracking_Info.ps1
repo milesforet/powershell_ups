@@ -190,7 +190,7 @@ try {
             "LastScan"=$package_info.last_scan; "LastScanLocation"=$package_info.last_scan_local;  "ShippingTo"=$package_info.ship_to; "DeliveryDate"=$package_info.deliv_date; 
             "Reference"=$package_info.reference; "ShipService"=$package_info.ship_service}
 
-            Write-Output ($item["Title"] + "has been updated`n")
+            Write-Output ($item["Title"] + " has been updated`n")
         
         }else{
             Write-Output ('----Id: '+$item.ID + ' ' + $item["Title"]+ ' ' + 'format incorrect. Not a UPS tracking number----')

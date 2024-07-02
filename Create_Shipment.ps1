@@ -18,7 +18,7 @@ $headers = @{
 }
 
 $url = "https://wwwcie.ups.com/api/shipments/v2403/ship?additionaladdressvalidation=string"
-#$url = "https://onlinetools.ups.com/api/shipments/v2403/ship?additionaladdressvalidation=string"
+#url = "https://onlinetools.ups.com/api/shipments/v2403/ship?additionaladdressvalidation=string"
 
 . ./package_info.ps1
 
@@ -46,98 +46,125 @@ if($sp_list.length -eq 0){
     exit
 }
 
-foreach($item in $sp_list){
+:outer foreach($item in $sp_list){
 
+    $item
     try {
-        $shipper = ship_from -miles_or_roman $item["ShipFrom"]
-
-    $ship_to_info = @{
-        name = $item["Person"]."LookupValue"
-        number = $item["PhoneNumber"]
-        address1 = $item["AddressLine1"]
-        address2 = $item["Address2"]
-        city = $item["City"]
-        state = $item["State_x0028_Abbr_x0029_"]
-        zip = $item["ZipCode"]
-        email = $item["Person"].Email
-    }
-
-    $ship_to = ship_to @ship_to_info
-
-    $packages = create_packages -pc $item["Laptop_x002f_Desktop"] -name $item["Person"]."LookupValue" -dept $item["Department"]
-
-    $body = @{
-        ShipmentRequest = @{
-            Request = @{
-                RequestOption = "validate"
-            }
-            Shipment = @{
-                Shipper = $shipper
-           
-                ShipTo = $ship_to
-     
-                PaymentInformation = @{
-                    ShipmentCharge = @(
-                        @{
-                            Type = "01"
-                            BillShipper = @{
-                                AccountNumber = $account_number
-                            }
-                        }
-                    )
-                }
-                Service = @{
-                    Code = $ship_service[$item["ShipService"]]
-                }
-                Package = $packages
-            }
-            LabelSpecification = @{
-                LabelImageFormat = @{
-                    Code = "GIF"
-                }
-                LabelStockSize = @{
-                    Height = "6"
-                    Width = "4"
-                }
-            }
-           
+        if($item["ShipFrom"] -eq $null -or $item["ShipFrom"] -eq ""){
+            $i = Set-PnPListItem -List "Create Labels" -Identity $item.Id -Values @{"Status" = "Failed"; "Notes"= "Missing Ship From field"}
+            continue
         }
-    }
-     
-    $json_body = $body | ConvertTo-Json -depth 15
 
-     
-    $response = Invoke-WebRequest -Method Post -Uri $url -Headers $headers -Body $json_body
-     
-    $response = $response.content | ConvertFrom-Json
-    $shipping_result = $response.ShipmentResponse.ShipmentResults.PackageResults
-    $count = 1
+        $ship_to_info = @{
+            name = $item["Title"]
+            number = $item["PhoneNumber"]
+            address1 = $item["AddressLine1"]
+            address2 = $item["Address2"]
+            city = $item["City"]
+            state = $item["State_x0028_Abbr_x0029_"]
+            zip = $item["ZipCode"]
+            ShipService = $item["ShipService"]
+            laptop_or_desktop = $item["Laptop_x002f_Desktop"]
+            dept = $item["Department"]
+            ShipFrom = $item["ShipFrom"]
+        }
 
-    $tracking_nums = @()
-    foreach($package in $shipping_result){
-        $tracking_nums += $package.TrackingNumber
-        $label = $package.ShippingLabel.GraphicImage
-        [IO.File]::WriteAllBytes("images\$count.jpg", [Convert]::FromBase64String($label))
-        $count++
-    }
+        #validate data
+        $ship_to_info.keys | ForEach-Object{
 
-    
-    $date = Get-Date -UFormat %m-%d-%y
-    $name = $item["Person"]."LookupValue" -replace '\s',''
-    python .\convert_pdf.py "$date-$name"
-    Remove-item .\images\*.jpg 
+            if(($ship_to_info[$_] -eq $null -or $ship_to_info[$_] -eq "") -and $_ -ne "address2"){
+                $i = Set-PnPListItem -List "Create Labels" -Identity $item.Id -Values @{"Status" = "Failed"; "Notes"= "$_ field is missing"}
+                continue outer
+            }
+        }
 
-    Add-PnPFile -Path "images\$date-$name.pdf" -Folder "Labels"
 
-    $i = Set-PnPListItem -List "Create Labels" -Identity $item.Id -Values @{"Status" = "Label Created"}
+        $shipper = ship_from -miles_or_roman $ship_to_info["ShipFrom"]
 
-    $tracking_nums = ($tracking_nums -join "`n") 
-    $i = Set-PnPListItem -List "Create Labels" -Identity $item.Id -Values @{"TrackingNumbers" = $tracking_nums}
+        $ship_to = ship_to @ship_to_info
 
-    }
-    catch {
-        Write-Error $_
-        $i = Set-PnPListItem -List "Create Labels" -Identity $item.Id -Values @{"Status" = "Failed"; "Notes"= $_}
-    }
+        $packages = create_packages -pc $ship_to_info["laptop_or_desktop"] -name $ship_to_info["name"] -dept $ship_to_info["dept"]
+
+        $packages | ConvertTo-Json -depth 10
+
+        $body = @{
+            ShipmentRequest = @{
+                Request = @{
+                    RequestOption = "validate"
+                }
+                Shipment = @{
+                    Shipper = $shipper
+            
+                    ShipTo = $ship_to
+        
+                    PaymentInformation = @{
+                        ShipmentCharge = @(
+                            @{
+                                Type = "01"
+                                BillShipper = @{
+                                    AccountNumber = $account_number
+                                }
+                            }
+                        )
+                    }
+                    Service = @{
+                        Code = $ship_service[$ship_to_info["ShipService"]]
+                    }
+                    Package = $packages
+                }
+                LabelSpecification = @{
+                    LabelImageFormat = @{
+                        Code = "GIF"
+                    }
+                    LabelStockSize = @{
+                        Height = "6"
+                        Width = "4"
+                    }
+                }
+            
+            }
+        }
+        
+        $json_body = $body | ConvertTo-Json -depth 15
+        
+        $response = Invoke-WebRequest -Method Post -Uri $url -Headers $headers -Body $json_body
+        
+        $response = $response.content | ConvertFrom-Json
+        $shipping_result = $response.ShipmentResponse.ShipmentResults.PackageResults
+        $count = 1
+
+        $tracking_nums = @()
+        foreach($package in $shipping_result){
+            $tracking_nums += $package.TrackingNumber
+            $label = $package.ShippingLabel.GraphicImage
+            [IO.File]::WriteAllBytes("images\$count.jpg", [Convert]::FromBase64String($label))
+            $count++
+        }
+
+        try{
+            $date = Get-Date -UFormat %m-%d-%y
+            $name = $item["Title"] -replace '\s',''
+            python .\convert_pdf.py "$date-$name"
+            Remove-item .\images\*.jpg 
+
+            $i = Add-PnPFile -Path "images\$date-$name.pdf" -Folder "Labels"
+
+            $i = Set-PnPListItem -List "Create Labels" -Identity $item.Id -Values @{"Status" = "Label Created"}
+
+            $tracking_nums = ($tracking_nums -join "`n") 
+            $i = Set-PnPListItem -List "Create Labels" -Identity $item.Id -Values @{"TrackingNumbers" = $tracking_nums}
+            Clear-Variable -Name ship_to_info, body, packages
+
+        }catch{
+            Write-Error $_
+            Clear-Variable -Name ship_to_info, body, packages
+            $i = Set-PnPListItem -List "Create Labels" -Identity $item.Id -Values @{"Status" = "Failed"; "Notes"= $_}
+        }
+
+        }
+        catch {
+            Write-Error $_
+            $i = Set-PnPListItem -List "Create Labels" -Identity $item.Id -Values @{"Status" = "Failed"; "Notes"= $_}
+        }
     
 }
