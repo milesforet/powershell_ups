@@ -91,7 +91,8 @@ function Get-Shipping-Info($tracking_num){
 #FUNCTION TO VOID SHIPMENT. TAKES TRACKING NUMBER AS PARAMETER
 function Void-Shipment($tracking_num){
 
-    $url = "https://onlinetools.ups.com/api/shipments/v2403/void/cancel/"+$tracking_num+"?trackingnumber="+$tracking_num
+    write-host "$tracking_num - inside void shipment"
+    $url = "https://onlinetools.ups.com/api/shipments/v2403/void/cancel/$tracking_num"
 
     $bearer_tok = Get-Content ./auth/bearer.txt
 
@@ -102,9 +103,10 @@ function Void-Shipment($tracking_num){
     }
 
     #MAKE REQUEST TO VOID SHIPMENT
-    Invoke-RestMethod -Uri $url -Method Delete -Headers $headers
+    $i= Invoke-RestMethod -Uri $url -Method Delete -Headers $headers
 }
-#Function to 
+
+#Function to add tracking numbers to list
 function Add-Tracking-Number($new_tracking){
     Connect-PnPOnline -url "https://70rspw.sharepoint.com/sites/Testing" -interactive
 
@@ -136,7 +138,7 @@ try {
     if($sp_list){
 
         foreach($item in $sp_list){
-            
+
             if($item["Title"] -clike "1Z*" -and $item["Title"].Length -eq 18){
                 Void-Shipment($item["Title"])
                 Write-Output ($item["Title"]+ '- Voided!')

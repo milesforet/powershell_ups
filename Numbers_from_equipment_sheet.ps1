@@ -25,41 +25,40 @@ try {
     #>
     if(!$sp_list){
         Write-Host "No new items to ship"
+        exit
 
-    }else{
-        foreach($item in $sp_list){
+    }
+    foreach($item in $sp_list){
+
+        if(!$item["ShippingInfo"]){
     
-            if(!$item["ShippingInfo"]){
+            Write-Host $item["Title"]"- shipping Info is empty. Could not add to UPS Tracking list"
+            continue
         
-                Write-Host $item["Title"]"- shipping Info is empty. Could not add to UPS Tracking list"
-            
-            }else{
-                
-                $tracking_nums = ($item["ShippingInfo"]).Split(“`n”)
-        
-                foreach($line in $tracking_nums){    
-        
-                    $index = $line.IndexOf("1Z")
-        
-                    if($index -eq -1){
-        
-                        Write-Host "Line does not contain valid tracking number"
-        
-                    }else{
-        
-                        try {
-                            $tracking_num = $line.ToString().SubString($index, 18)
-                            #$i = Add-PnPListItem -List "UPS Tracking" -Values @{"Title"=$tracking_num}
-                            Write-Host $tracking_num" added to UPS Tracking List"
-                        }
-        
-                        catch {
-                            Write-Host -f red "Encountered Error:"$_.Exception.Message
-                        }
-                    }
-                }
+        }
+
+        $tracking_nums = ($item["ShippingInfo"]).Split(“`n”)
+
+        foreach($line in $tracking_nums){    
+
+            $index = $line.IndexOf("1Z")
+
+            if($index -eq -1){    
+                Write-Host "Line does not contain valid tracking number"
+                continue
+            }
+
+            try {
+                $tracking_num = $line.ToString().SubString($index, 18)
+                #$i = Add-PnPListItem -List "UPS Tracking" -Values @{"Title"=$tracking_num}
+                Write-Host $tracking_num" added to UPS Tracking List"
+            }
+
+            catch {
+                Write-Host -f red "Encountered Error:"$_.Exception.Message
             }
         }
+        
     }
 }
 catch {

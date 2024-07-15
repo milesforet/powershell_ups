@@ -4,14 +4,7 @@ $query = @"
 <View>
     <Query>
         <Where>
-
-            <Or>
-                <Or>
-                    <Eq><FieldRef Name='Status'/><Value Type='Text'>Have Hardware</Value></Eq>
-                    <Eq><FieldRef Name='Status'/><Value Type='Text'>Configuring</Value></Eq>
-                </Or>
-                <Eq><FieldRef Name='Status'/><Value Type='Text'>Ordered</Value></Eq>
-            </Or>
+                    <Eq><FieldRef Name='Status'/><Value Type='Text'>Create Labels</Value></Eq>
         </Where>
     </Query>
 </View>
@@ -55,7 +48,6 @@ foreach($item in $sp_list){
     $start = $notes.IndexOf("Phone:")
     $phone = $notes.ToString().SubString($start+6, 10)
 
-
     $params = @{
         "Title" = $item["Title"]
         "PhoneNumber" = $phone
@@ -64,6 +56,8 @@ foreach($item in $sp_list){
         "City" = $city
         "State_x0028_Abbr_x0029_" = $state
         "ZipCode" = $zip
+        "ShipFrom" = $item["Assigned"]
+        "EP_ID" = $item.Id
     }
 
     $params
