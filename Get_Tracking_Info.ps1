@@ -66,7 +66,7 @@ function Get-Shipping-Info($tracking_num){
 
     #Ship to
     $to_address1 = $api_response.trackResponse.shipment.package.packageAddress[1].address.addressLine1
-    $to_address1 = $to_address1.Substring(0,$to_address1.Length-1)
+    $to_address1 = $to_address1.Substring(0,$to_address1.Length)
     $to_address2 = $api_response.trackResponse.shipment.package.packageAddress[1].address.addressLine2
     $city = $api_response.trackResponse.shipment.package.packageAddress[1].address.city
     $state = $api_response.trackResponse.shipment.package.packageAddress[1].address.stateProvince
@@ -105,14 +105,6 @@ function Void-Shipment($tracking_num){
     #MAKE REQUEST TO VOID SHIPMENT
     $i= Invoke-RestMethod -Uri $url -Method Delete -Headers $headers
 }
-
-#Function to add tracking numbers to list
-function Add-Tracking-Number($new_tracking){
-    Connect-PnPOnline -url "https://70rspw.sharepoint.com/sites/Testing" -interactive
-
-    Add-PnPListItem -List "Tracking" -Values @{"Title"=$new_tracking}
-}
-
 
 ./Bearer_Token.ps1
 

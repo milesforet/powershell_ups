@@ -410,7 +410,7 @@ function only_monitor($name, $dept){
             UnitOfMeasurement =  @{
                 Code = "LBS"
             }
-            Weight = "20"
+            Weight = "13"
         }
         ReferenceNumber = @(
             @{
@@ -509,40 +509,24 @@ function only_performance_laptop($name, $dept){
 
 function create_packages($pc, $name, $dept) {
 
-    if ($pc -eq "Laptop Package") {
-        return laptop -name $name -dept $dept
+    $packages = @()
 
-    }
-    elseif ($pc -eq "Desktop Package") {
-        return desktop -name $name -dept $dept
+    foreach($item in $pc){
 
-    }else{
-        $packages = @()
-
-        foreach($item in $pc){
-
-            #TODO: change to switch statement
-            if($item -eq "Desktop Package" -or $item -eq "Laptop Package"){
-                Return "Error"
-
-            }elseif($item -eq "Dock"){
-                $packages += (only_dock -name $name -dept $dept)
-            }
-            elseif($item -eq "Laptop"){
-                $packages += (only_laptop -name $name -dept $dept)
-            }
-            elseif($item -eq "Monitor 1" -or $item -eq "Monitor 2"){
-                $packages += (only_monitor -name $name -dept $dept)
-            }
-            elseif($item -eq "Peripherals"){
-                $packages += (only_peripheral -name $name -dept $dept)
-            }
-            elseif($item -eq "Performance Laptop"){
-                $packages += (only_performance_laptop -name $name -dept $dept)
-            }
+        switch ($item) {
+            "Laptop Package" {$packages += (laptop -name $name -dept $dept)}
+            "Desktop Package" {$packages += desktop -name $name -dept $dept}
+            "Dock" {$packages += (only_dock -name $name -dept $dept)}
+            "Laptop" {$packages += (only_laptop -name $name -dept $dept)}
+            "Monitor 1" {$packages += (only_monitor -name $name -dept $dept)}
+            "Monitor 2" {$packages += (only_monitor -name $name -dept $dept)}
+            "Peripherals" {$packages += (only_peripheral -name $name -dept $dept)}
+            "Performance Laptop" {$packages += (only_performance_laptop -name $name -dept $dept)}
+            Default {return "Error"}
         }
-        return $packages
     }
+    return $packages
+    
 }
 
 
