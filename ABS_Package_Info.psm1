@@ -52,9 +52,30 @@ $from_miles = @{
     }
 }
 
+$from_warren = @{
+    Name = "ABS Kids"
+    AttentionName = "Warren Cramer"
+    CompanyDisplayableName = "ABS Kids"
+    EMailAddress = "wcramer@abskids.com"
+    Phone = @{
+        Number = "7432576006"
+    }
+    ShipperNumber = "3124Y8"
+    Address = @{
+        AddressLine = "257 Gretas Way", "Suite 100"
+        City = "KERNERSVILLE"
+        StateProvinceCode = "NC"
+        PostalCode = "27284"
+        CountryCode = "US"
+    }
+}
+
+
 New-Variable -Name from_dalton -Value $from_dalton -Scope Script -Force
 New-Variable -Name from_miles -Value $from_miles -Scope Script -Force
 New-Variable -Name from_roman -Value $from_roman -Scope Script -Force
+New-Variable -Name from_warren -Value $from_warren -Scope Script -Force
+
 
 
 function laptop($name, $dept){
@@ -509,6 +530,51 @@ function only_performance_laptop($name, $dept){
     return $laptop
 }
 
+
+function aio_desktop($name, $dept){
+    $laptop = @(
+    @{
+        Packaging = @{
+            Code = "02"                        
+        }
+        Dimensions = @{
+            UnitOfMeasurement = @{
+                Code = "IN"
+            }
+            Length = "29"
+            Width = "17"
+            Height = "6"
+        }
+        PackageWeight = @{
+            UnitOfMeasurement =  @{
+                Code = "LBS"
+            }
+            Weight = "16"
+        }
+        ReferenceNumber = @(
+            @{
+                Value = "{0} AIO Desktop"
+            },
+            @{
+                Value = "Bill to {0}"
+            }
+        )
+        PackageServiceOptions = @{
+            DeclaredValue = @{
+                CurrencyCode ="USD"
+                MonetaryValue = "999"
+            }
+        }
+    }
+    )
+
+    $laptop[0].ReferenceNumber[0].Value = [string]::Format($laptop[0].ReferenceNumber[0].Value, $name)
+    $laptop[0].ReferenceNumber[1].Value = [string]::Format($laptop[0].ReferenceNumber[1].Value, $dept)
+
+    return $laptop
+}
+
+
 function ipads($name, $dept){
     $ipads = @(
         @{
@@ -545,11 +611,56 @@ function ipads($name, $dept){
     return $ipads
 }
 
+function only_desktop($name, $dept){
+    $desktop = @(
+    @{
+        Packaging = @{
+            Code = "02"                        
+        }
+        Dimensions = @{
+            UnitOfMeasurement = @{
+                Code = "IN"
+            }
+            Length = "20"
+            Width = "20"
+            Height = "5"
+        }
+        PackageWeight = @{
+            UnitOfMeasurement =  @{
+                Code = "LBS"
+            }
+            Weight = "7"
+        }
+        ReferenceNumber = @(
+            @{
+                Value = "{0} Desktop"
+            },
+            @{
+                Value = "Bill to {0}"
+            }
+        )
+        PackageServiceOptions = @{
+            DeclaredValue = @{
+                CurrencyCode ="USD"
+                MonetaryValue = "999"
+            }
+        }
+    }
+    )
+
+    $desktop[0].ReferenceNumber[0].Value = [string]::Format($desktop[0].ReferenceNumber[0].Value, $name)
+    $desktop[0].ReferenceNumber[1].Value = [string]::Format($desktop[0].ReferenceNumber[1].Value, $dept)
+
+    return $desktop
+}
+
+
 function create_packages($pc, $name, $dept) {
 
     $packages = @()
 
     foreach($item in $pc){
+        Write-Logs $item
 
         switch ($item) {
             "Laptop Package" {$packages += (laptop -name $name -dept $dept)}
@@ -561,6 +672,8 @@ function create_packages($pc, $name, $dept) {
             "Peripherals" {$packages += (only_peripheral -name $name -dept $dept)}
             "Performance Laptop" {$packages += (only_performance_laptop -name $name -dept $dept)}
             "iPads" {$packages += (ipads -name $name -dept $dept)}
+            "AIO" {$packages += (aio_desktop -name $name -dept $dept)}
+            "Desktop" {$packages += (only_desktop -name $name -dept $dept)}
             Default {return "Error"}
         }
     }
@@ -568,20 +681,22 @@ function create_packages($pc, $name, $dept) {
     
 }
 
-
 function ship_from($miles_or_roman, $name, $number, $address1, $address2, $city, $state, $zip) {
     if ($miles_or_roman -eq "Miles") {
-        Return $from_miles
+        return $from_miles
     }
     elseif ($miles_or_roman -eq "Roman") {
-        Return $from_roman
+        return $from_roman
     }
     elseif ($miles_or_roman -eq "Dalton"){
         return $from_dalton
     }
+    elseif ($miles_or_roman -eq "Warren"){
+        return $from_warren
+    }
     else {
         #TODO: add customizable shipping address. Will implement later
-        Write-Error "Failed in ship_from function. Value has to be Miles or Roman"
+        Write-Error "Failed in ship_from function."
     }
 }
 
@@ -601,9 +716,8 @@ function ship_to($name, $number, $address1, $address2, $city, $state, $zip, $ema
     
     
     $ship_to = @{
-        Name = "ABS Kids"
         AttentionName = $name
-        CompanyDisplayableName = "ABS Kids"
+        Name = "ABS Kids"
         EMailAddress = $email
         Phone = @{
             Number = $number
@@ -621,15 +735,15 @@ function ship_to($name, $number, $address1, $address2, $city, $state, $zip, $ema
 }
 
 Function Write-Logs($msg){
-    Write-Output $msg
+    Write-Host $msg
     $date = Get-Date -UFormat %m-%d-%y
-    $time = Get-Date -UFormat [%m-%d-%y]%I:%M
+    $time = Get-Date -UFormat %I:%M
     $file = (Split-Path $MyInvocation.PSCommandPath -Leaf) -replace ".ps1"
-    "$($time): $msg" | Out-File -Append -FilePath "C:\Users\MForet\Documents\Automations\--Logs--\$file-$date.txt" -Encoding UTF8
+    "[$($time)] $file - $msg" | Out-File -Append -FilePath "C:\Users\MilesForet\Documents\Automations\--Logs--\$date.txt" -Encoding UTF8
 } 
 
 function UPS_Bearer{
-    $refresh = (Get-Content C:\Users\MForet\Documents\Automations\UPS_Powershell\auth\bearer_refresh.txt)
+    $refresh = (Get-Content C:\Users\MilesForet\Documents\Automations\UPS_Powershell\auth\bearer_refresh.txt)
     $refresh = [datetime]::ParseExact($refresh, "MM/dd/yy hh:mm tt", $null)
     if((Get-Date) -lt ($refresh)){
         Write-Logs "UPS token still valid"
@@ -659,8 +773,8 @@ function UPS_Bearer{
     }
     try{
         $result = Invoke-RestMethod -Uri $url -Method Post -Headers $headers -Body $body
-        $result.access_token | Out-File -FilePath C:\Users\MForet\Documents\Automations\UPS_Powershell\auth\bearer.txt
-        Get-date ((Get-Date).AddHours(3).AddMinutes(59)) -UFormat "%m/%d/%y %I:%M %p" | Out-File -FilePath C:\Users\MForet\Documents\Automations\UPS_Powershell\auth\bearer_refresh.txt
+        $result.access_token | Out-File -FilePath C:\Users\MilesForet\Documents\Automations\UPS_Powershell\auth\bearer.txt
+        Get-date ((Get-Date).AddHours(3).AddMinutes(59)) -UFormat "%m/%d/%y %I:%M %p" | Out-File -FilePath C:\Users\MilesForet\Documents\Automations\UPS_Powershell\auth\bearer_refresh.txt
         Write-Logs "Updated UPS Bearer Token"
     }catch{
         Write-Logs "*****ERROR: Failed to Udate UPS Bearer Token*****"
