@@ -1,5 +1,5 @@
 $creds = Get-AbsCred -credName "service-equip@abskids.net"
-Connect-PnPOnline -url "https://abs79.sharepoint.com/sites/ITLogsandAudits" -Credentials $creds
+Connect-PnPOnline -url "https://abs79.sharepoint.com/sites/ITLogsandAudits" -Credentials $creds -ClientId "e41d925a-fe12-4c7f-9675-87a1e5a04e7d"
 
 $query = @"
 <View>
@@ -88,7 +88,6 @@ foreach($item in $sp_list){
 "@
 
     #supervisor
-    Connect-PnPOnline -url "https://abs79.sharepoint.com/sites/ITLogsandAudits" -Credentials $creds
     $supervisor = Get-PnPListItem -List "Onboarding Queue" -Query $sup_query
 
     $bill_to = ""
@@ -110,6 +109,8 @@ foreach($item in $sp_list){
         "*Learning" {$bill_to = "Learning $($supervisor["ReportsToText"])"}
         "*Business Development*" {$bill_to = "Business Dev $($supervisor["ReportsToText"])"}
         "*Operations Manager*" {$bill_to = "Clinical Ops $($supervisor["ReportsToText"])"}
+        "*Onboarding Agent*" {$bill_to = "Onboarding $($supervisor["ReportsToText"])"}
+
     }
 
 
@@ -142,6 +143,10 @@ foreach($item in $sp_list){
         "Vincent Pope" {$params.SupervisorContact = "Vince Pope"}
         "Jeffrey Hinckley" {$params.SupervisorContact = "Jeff Hinckley"}
         "Stephen Yeager Jr" {$params.SupervisorContact = "Steve Yeager Jr"}
+        "Liz Carrasco Amaya" {$params.SupervisorContact = "Anabella Carrasco Amaya"}
+        "Mariah Alden" {$params.SupervisorContact = "Mariah Strumbel"}
+        "Andrea Rosas Castro" {$params.SupervisorContact = "Andrea Rosas"}
+        "Charissa Devlin" {$params.SupervisorContact = "Cher Devlin"}
     }
 
 
